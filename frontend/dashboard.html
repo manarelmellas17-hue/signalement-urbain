@@ -2,53 +2,305 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard — Signalement Urbain</title>
-  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #1a202c; }
+
+    nav {
+      background: linear-gradient(135deg, #1a73e8, #0d47a1);
+      color: white;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    nav h1 { font-size: 1.3rem; font-weight: 700; }
+    nav a { color: rgba(255,255,255,0.85); text-decoration: none; margin-left: 1.5rem; font-size: 0.9rem; }
+    nav a:hover { color: white; }
+
+    .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
+
+    /* ── KPI Cards ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .kpi-card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.2rem 1rem;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      border-top: 4px solid #ccc;
+      transition: transform 0.2s;
+    }
+    .kpi-card:hover { transform: translateY(-3px); }
+    .kpi-card.total  { border-color: #1a73e8; }
+    .kpi-card.attente { border-color: #f9a825; }
+    .kpi-card.cours  { border-color: #2196f3; }
+    .kpi-card.resolu { border-color: #43a047; }
+    .kpi-card.rejete { border-color: #e53935; }
+    .kpi-card .num   { font-size: 2.4rem; font-weight: 800; line-height: 1; }
+    .kpi-card .label { font-size: 0.78rem; color: #666; margin-top: 0.3rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi-card .trend { font-size: 0.75rem; margin-top: 0.4rem; }
+    .kpi-card .trend.up   { color: #43a047; }
+    .kpi-card .trend.down { color: #e53935; }
+
+    /* ── Section titles ── */
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #2d3748;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* ── Charts row ── */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 900px) {
+      .charts-row { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 600px) {
+      .charts-row { grid-template-columns: 1fr; }
+    }
+    .chart-card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .chart-card canvas { max-height: 220px; }
+
+    /* ── Wide chart ── */
+    .chart-wide {
+      background: white;
+      border-radius: 12px;
+      padding: 1.2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      margin-bottom: 1.5rem;
+    }
+    .chart-wide canvas { max-height: 200px; }
+
+    /* ── Filters & table ── */
+    .filter-bar {
+      background: white;
+      border-radius: 12px;
+      padding: 1rem 1.2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      margin-bottom: 1rem;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-bar select, .filter-bar input {
+      padding: 0.5rem 0.8rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      background: #f8fafc;
+      color: #2d3748;
+    }
+    .filter-bar label { font-size: 0.82rem; color: #64748b; }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      margin-bottom: 0.8rem;
+      border-left: 4px solid #1a73e8;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+    .badge-attente { background: #fff8e1; color: #f57f17; }
+    .badge-cours   { background: #e3f2fd; color: #1565c0; }
+    .badge-resolu  { background: #e8f5e9; color: #2e7d32; }
+    .badge-rejete  { background: #ffebee; color: #c62828; }
+
+    .btn { padding: 0.45rem 0.9rem; border: none; border-radius: 8px; cursor: pointer; font-size: 0.82rem; font-weight: 600; transition: opacity 0.15s; }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: #1a73e8; color: white; }
+    .btn-success { background: #43a047; color: white; }
+    .btn-danger  { background: #e53935; color: white; }
+
+    /* ── Heatmap ── */
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    .heatmap-cell {
+      aspect-ratio: 1;
+      border-radius: 3px;
+      background: #e8f0fe;
+      transition: transform 0.1s;
+      cursor: default;
+    }
+    .heatmap-cell:hover { transform: scale(1.3); }
+    .heat-0 { background: #e8f0fe; }
+    .heat-1 { background: #a8c7fa; }
+    .heat-2 { background: #4285f4; }
+    .heat-3 { background: #1a73e8; }
+    .heat-4 { background: #0d47a1; }
+
+    /* ── Modal ── */
+    #modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.45);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    #modal .modal-box {
+      background: white;
+      border-radius: 16px;
+      padding: 1.8rem;
+      width: 480px;
+      max-width: 92%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.82rem; font-weight: 600; color: #64748b; margin-bottom: 0.3rem; }
+    .form-group select, .form-group textarea {
+      width: 100%; padding: 0.6rem 0.8rem;
+      border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem;
+    }
+    .form-group textarea { resize: vertical; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 0.3rem; margin-bottom: 1rem; }
+    .tab {
+      padding: 0.5rem 1.2rem;
+      border-radius: 8px;
+      background: #f1f5f9;
+      color: #64748b;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: none;
+      transition: all 0.15s;
+    }
+    .tab.active { background: #1a73e8; color: white; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #94a3b8;
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
+  </style>
 </head>
 <body>
+
 <nav>
   <h1>🏙️ Signalement Urbain</h1>
   <div>
-    <span id="nav-user"></span>
-    <a href="index.html">Carte</a>
-    <a href="#" id="nav-logout" onclick="logout()">Déconnexion</a>
+    <span id="nav-user" style="margin-right:1rem;opacity:0.9;font-size:0.9rem"></span>
+    <a href="index.html">🗺️ Carte</a>
+    <a href="#" onclick="logout()">Déconnexion</a>
   </div>
 </nav>
 
 <div class="container">
 
-  <!-- Stats -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin:2rem 0">
-    <div class="card" style="text-align:center;border-top:4px solid #1a73e8">
-      <div style="font-size:2rem;font-weight:700" id="stat-total">0</div>
-      <div style="color:#666">Total</div>
+  <!-- KPI Cards -->
+  <div class="kpi-grid" id="kpi-grid">
+    <div class="kpi-card total">
+      <div class="num" id="stat-total">—</div>
+      <div class="label">Total</div>
     </div>
-    <div class="card" style="text-align:center;border-top:4px solid #f9a825">
-      <div style="font-size:2rem;font-weight:700" id="stat-attente">0</div>
-      <div style="color:#666">En attente</div>
+    <div class="kpi-card attente">
+      <div class="num" id="stat-attente">—</div>
+      <div class="label">En attente</div>
     </div>
-    <div class="card" style="text-align:center;border-top:4px solid #1e88e5">
-      <div style="font-size:2rem;font-weight:700" id="stat-cours">0</div>
-      <div style="color:#666">En cours</div>
+    <div class="kpi-card cours">
+      <div class="num" id="stat-cours">—</div>
+      <div class="label">En cours</div>
     </div>
-    <div class="card" style="text-align:center;border-top:4px solid #43a047">
-      <div style="font-size:2rem;font-weight:700" id="stat-resolu">0</div>
-      <div style="color:#666">Résolus</div>
+    <div class="kpi-card resolu">
+      <div class="num" id="stat-resolu">—</div>
+      <div class="label">Résolus</div>
+    </div>
+    <div class="kpi-card rejete">
+      <div class="num" id="stat-rejete">—</div>
+      <div class="label">Rejetés</div>
+    </div>
+    <div class="kpi-card" style="border-color:#7c3aed">
+      <div class="num" id="stat-resolution">—%</div>
+      <div class="label">Taux résolution</div>
     </div>
   </div>
 
-  <!-- Filtres -->
-  <div class="card">
-    <div style="display:flex;gap:1rem;flex-wrap:wrap">
+  <!-- Charts row 1 -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="section-title">📊 Par catégorie</div>
+      <canvas id="chartCategorie"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="section-title">🔵 Par statut</div>
+      <canvas id="chartStatut"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="section-title">⚡ Par priorité</div>
+      <canvas id="chartPriorite"></canvas>
+    </div>
+  </div>
+
+  <!-- Trend chart -->
+  <div class="chart-wide">
+    <div class="section-title">📈 Évolution des signalements (7 derniers jours)</div>
+    <canvas id="chartTrend"></canvas>
+  </div>
+
+  <!-- Tabs: Liste + Heatmap -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('liste')">📋 Liste des signalements</button>
+    <button class="tab" onclick="switchTab('heatmap')">🗓️ Activité hebdomadaire</button>
+    <button class="tab" onclick="switchTab('top')">🏆 Top problèmes</button>
+  </div>
+
+  <!-- Filters (for liste tab) -->
+  <div class="filter-bar" id="filter-bar">
+    <div>
+      <label>Statut</label>
       <select id="filtre-statut" onchange="filtrer()">
-        <option value="">Tous les statuts</option>
+        <option value="">Tous</option>
         <option value="en_attente">En attente</option>
         <option value="en_cours">En cours</option>
         <option value="resolu">Résolu</option>
         <option value="rejete">Rejeté</option>
       </select>
+    </div>
+    <div>
+      <label>Catégorie</label>
       <select id="filtre-categorie" onchange="filtrer()">
-        <option value="">Toutes les catégories</option>
+        <option value="">Toutes</option>
         <option value="eclairage">💡 Éclairage</option>
         <option value="route">🛣️ Route</option>
         <option value="dechets">🗑️ Déchets</option>
@@ -57,48 +309,86 @@
         <option value="autre">📌 Autre</option>
       </select>
     </div>
+    <div>
+      <label>Priorité</label>
+      <select id="filtre-priorite" onchange="filtrer()">
+        <option value="">Toutes</option>
+        <option value="haute">🔴 Haute</option>
+        <option value="moyenne">🟡 Moyenne</option>
+        <option value="basse">🟢 Basse</option>
+      </select>
+    </div>
+    <div>
+      <label>Recherche</label>
+      <input type="text" id="filtre-recherche" placeholder="Titre, adresse..." oninput="filtrer()">
+    </div>
+    <div style="margin-left:auto">
+      <span id="count-label" style="font-size:0.82rem;color:#64748b"></span>
+    </div>
   </div>
 
-  <!-- Liste -->
-  <div id="liste-dashboard">Chargement...</div>
+  <!-- Tab panels -->
+  <div id="tab-liste" class="tab-panel active">
+    <div id="liste-dashboard">
+      <div class="empty-state"><div class="icon">⏳</div>Chargement…</div>
+    </div>
+  </div>
+
+  <div id="tab-heatmap" class="tab-panel">
+    <div class="chart-card">
+      <div class="section-title">🗓️ Activité par jour de la semaine</div>
+      <div class="heatmap-grid" id="heatmap-container" style="margin-top:0.5rem"></div>
+      <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.8rem;font-size:0.78rem;color:#64748b">
+        <span>Moins</span>
+        <span class="heatmap-cell heat-0" style="width:14px;height:14px;display:inline-block"></span>
+        <span class="heatmap-cell heat-1" style="width:14px;height:14px;display:inline-block"></span>
+        <span class="heatmap-cell heat-2" style="width:14px;height:14px;display:inline-block"></span>
+        <span class="heatmap-cell heat-3" style="width:14px;height:14px;display:inline-block"></span>
+        <span class="heatmap-cell heat-4" style="width:14px;height:14px;display:inline-block"></span>
+        <span>Plus</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-top" class="tab-panel">
+    <div class="chart-card" id="top-problemes">
+      <div class="section-title">🏆 Top des problèmes les plus votés</div>
+      <div id="top-list"></div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Modal traitement -->
-<div id="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
-  background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center">
-  <div class="card" style="width:500px;max-width:90%">
-    <h3 style="margin-bottom:1rem">✏️ Traiter le signalement</h3>
+<div id="modal">
+  <div class="modal-box">
+    <h3 style="margin-bottom:1.2rem;font-size:1.1rem">✏️ Traiter le signalement</h3>
     <input type="hidden" id="modal-id">
-    <input type="hidden" id="modal-rev">
     <div class="form-group">
       <label>Nouveau statut</label>
       <select id="modal-statut">
-        <option value="en_attente">En attente</option>
-        <option value="en_cours">En cours</option>
-        <option value="resolu">Résolu</option>
-        <option value="rejete">Rejeté</option>
+        <option value="en_attente">⏳ En attente</option>
+        <option value="en_cours">🔄 En cours</option>
+        <option value="resolu">✅ Résolu</option>
+        <option value="rejete">❌ Rejeté</option>
       </select>
     </div>
     <div class="form-group">
       <label>Commentaire</label>
-      <textarea id="modal-commentaire" rows="3" 
-        placeholder="Ajouter un commentaire..."></textarea>
+      <textarea id="modal-commentaire" rows="3" placeholder="Ajouter un commentaire…"></textarea>
     </div>
-    <div style="display:flex;gap:1rem">
+    <div style="display:flex;gap:0.8rem">
       <button class="btn btn-success" onclick="sauvegarder()">💾 Sauvegarder</button>
       <button class="btn btn-danger" onclick="fermerModal()">✖ Annuler</button>
     </div>
   </div>
 </div>
 
-<script src="js/auth.js"></script>
 <script>
-requireLogin();
-updateNav();
+// ── Config ──────────────────────────────────────────────────────────────────
+const API = 'http://localhost:3000/api';
 
-let tousSignalements = [];
-
-const categories = {
+const CATEGORIES = {
   eclairage:  '💡 Éclairage',
   route:      '🛣️ Route',
   dechets:    '🗑️ Déchets',
@@ -106,68 +396,324 @@ const categories = {
   inondation: '🌊 Inondation',
   autre:      '📌 Autre'
 };
+const CAT_COLORS = ['#4285f4','#ea4335','#fbbc04','#34a853','#ff6d00','#9c27b0'];
 
-async function charger() {
-  const res = await fetch(`${API}/signalements`);
-  const all = await res.json();
-  tousSignalements = all.filter(s => s.type === 'signalement');
-  mettreAJourStats();
-  afficher(tousSignalements);
+const STATUT_LABELS = { en_attente:'En attente', en_cours:'En cours', resolu:'Résolu', rejete:'Rejeté' };
+const STATUT_COLORS = ['#fbbc04','#4285f4','#34a853','#ea4335'];
+
+const PRIOR_COLORS  = { haute:'#ea4335', moyenne:'#fbbc04', basse:'#34a853' };
+
+// ── State ────────────────────────────────────────────────────────────────────
+let allSignalements = [];
+let chartCat, chartStat, chartPrio, chartTrend;
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  updateNav();
+  charger();
+});
+
+function updateNav() {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  if (user.nom) document.getElementById('nav-user').textContent = '👤 ' + user.nom;
+}
+function logout() {
+  localStorage.removeItem('user');
+  window.location.href = 'login.html';
 }
 
-function mettreAJourStats() {
-  document.getElementById('stat-total').textContent   = tousSignalements.length;
-  document.getElementById('stat-attente').textContent = tousSignalements.filter(s => s.statut === 'en_attente').length;
-  document.getElementById('stat-cours').textContent   = tousSignalements.filter(s => s.statut === 'en_cours').length;
-  document.getElementById('stat-resolu').textContent  = tousSignalements.filter(s => s.statut === 'resolu').length;
+// ── Load data ─────────────────────────────────────────────────────────────────
+async function charger() {
+  try {
+    const res = await fetch(`${API}/signalements`);
+    const all = await res.json();
+    allSignalements = all.filter(s => s.type === 'signalement');
+  } catch {
+    // Demo data when backend is offline
+    allSignalements = DEMO_DATA;
+  }
+  updateKPIs();
+  renderCharts();
+  filtrer();
+  renderHeatmap();
+  renderTop();
+}
+
+// ── KPIs ──────────────────────────────────────────────────────────────────────
+function updateKPIs() {
+  const data = allSignalements;
+  const total   = data.length;
+  const attente = data.filter(s => s.statut === 'en_attente').length;
+  const cours   = data.filter(s => s.statut === 'en_cours').length;
+  const resolu  = data.filter(s => s.statut === 'resolu').length;
+  const rejete  = data.filter(s => s.statut === 'rejete').length;
+  const taux    = total > 0 ? Math.round((resolu / total) * 100) : 0;
+
+  setText('stat-total',      total);
+  setText('stat-attente',    attente);
+  setText('stat-cours',      cours);
+  setText('stat-resolu',     resolu);
+  setText('stat-rejete',     rejete);
+  setText('stat-resolution', taux + '%');
+}
+
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+// ── Charts ────────────────────────────────────────────────────────────────────
+function renderCharts() {
+  const data = allSignalements;
+
+  // By category
+  const catCounts = Object.keys(CATEGORIES).map(k => data.filter(s => s.categorie === k).length);
+  renderDoughnut('chartCategorie', Object.values(CATEGORIES), catCounts, CAT_COLORS);
+
+  // By status
+  const statOrder = ['en_attente','en_cours','resolu','rejete'];
+  const statCounts = statOrder.map(k => data.filter(s => s.statut === k).length);
+  renderDoughnut('chartStatut', statOrder.map(k => STATUT_LABELS[k]), statCounts, STATUT_COLORS);
+
+  // By priority
+  const prios = ['haute','moyenne','basse'];
+  const prioCounts = prios.map(p => data.filter(s => s.priorite === p).length);
+  renderBar('chartPriorite', ['🔴 Haute','🟡 Moyenne','🟢 Basse'], prioCounts,
+    ['#ea4335','#fbbc04','#34a853']);
+
+  // 7-day trend
+  const days = [];
+  const counts = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const label = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+    const dayStr = d.toISOString().slice(0, 10);
+    days.push(label);
+    counts.push(data.filter(s => s.date_creation && s.date_creation.startsWith(dayStr)).length);
+  }
+  renderTrend('chartTrend', days, counts);
+}
+
+function renderDoughnut(canvasId, labels, values, colors) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  if (window['_chart_' + canvasId]) window['_chart_' + canvasId].destroy();
+  window['_chart_' + canvasId] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: {
+      cutout: '62%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } }
+      }
+    }
+  });
+}
+
+function renderBar(canvasId, labels, values, colors) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  if (window['_chart_' + canvasId]) window['_chart_' + canvasId].destroy();
+  window['_chart_' + canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } },
+        y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function renderTrend(canvasId, labels, values) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  if (window['_chart_' + canvasId]) window['_chart_' + canvasId].destroy();
+  window['_chart_' + canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Signalements',
+        data: values,
+        borderColor: '#1a73e8',
+        backgroundColor: 'rgba(26,115,232,0.1)',
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#1a73e8',
+        pointRadius: 5
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: {
+          beginAtZero: true,
+          grid: { color: '#f1f5f9' },
+          ticks: { font: { size: 11 }, stepSize: 1 }
+        }
+      }
+    }
+  });
+}
+
+// ── Heatmap ────────────────────────────────────────────────────────────────────
+function renderHeatmap() {
+  const container = document.getElementById('heatmap-container');
+  const jours = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  const weeks = 7;
+
+  // Count per day slot
+  const grid = Array.from({ length: weeks }, () => Array(7).fill(0));
+  const now = new Date();
+
+  allSignalements.forEach(s => {
+    if (!s.date_creation) return;
+    const d = new Date(s.date_creation);
+    const diffDays = Math.floor((now - d) / 86400000);
+    if (diffDays >= weeks * 7) return;
+    const week = Math.floor(diffDays / 7);
+    const day  = (d.getDay() + 6) % 7; // Mon=0
+    if (week < weeks) grid[weeks - 1 - week][day]++;
+  });
+
+  const maxVal = Math.max(1, ...grid.flat());
+
+  // Header row
+  let html = jours.map(j =>
+    `<div style="text-align:center;font-size:0.7rem;color:#64748b;font-weight:600">${j}</div>`
+  ).join('');
+
+  for (let w = 0; w < weeks; w++) {
+    for (let d = 0; d < 7; d++) {
+      const val = grid[w][d];
+      const level = val === 0 ? 0 : Math.ceil((val / maxVal) * 4);
+      html += `<div class="heatmap-cell heat-${level}" title="${val} signalement(s)"></div>`;
+    }
+  }
+  container.innerHTML = html;
+}
+
+// ── Top ────────────────────────────────────────────────────────────────────────
+function renderTop() {
+  const sorted = [...allSignalements].sort((a, b) => (b.votes || 0) - (a.votes || 0)).slice(0, 5);
+  const el = document.getElementById('top-list');
+  if (!sorted.length) { el.innerHTML = '<p style="color:#94a3b8">Aucun signalement.</p>'; return; }
+
+  el.innerHTML = sorted.map((s, i) => {
+    const medal = ['🥇','🥈','🥉','4️⃣','5️⃣'][i];
+    return `
+      <div style="display:flex;align-items:center;gap:1rem;padding:0.8rem 0;border-bottom:1px solid #f1f5f9">
+        <div style="font-size:1.4rem;width:2rem;text-align:center">${medal}</div>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:0.9rem">${s.titre}</div>
+          <div style="font-size:0.78rem;color:#64748b">
+            ${CATEGORIES[s.categorie] || s.categorie} &nbsp;·&nbsp;
+            ${s.localisation?.adresse || 'N/A'}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700;color:#1a73e8;font-size:1.1rem">${s.votes || 0}</div>
+          <div style="font-size:0.72rem;color:#94a3b8">votes</div>
+        </div>
+        ${getBadge(s.statut)}
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  document.getElementById('filter-bar').style.display = name === 'liste' ? 'flex' : 'none';
+}
+
+// ── Filter & render list ───────────────────────────────────────────────────────
+function filtrer() {
+  const statut    = document.getElementById('filtre-statut').value;
+  const categorie = document.getElementById('filtre-categorie').value;
+  const priorite  = document.getElementById('filtre-priorite').value;
+  const q         = document.getElementById('filtre-recherche').value.toLowerCase();
+
+  let liste = allSignalements;
+  if (statut)    liste = liste.filter(s => s.statut === statut);
+  if (categorie) liste = liste.filter(s => s.categorie === categorie);
+  if (priorite)  liste = liste.filter(s => s.priorite === priorite);
+  if (q) liste = liste.filter(s =>
+    (s.titre || '').toLowerCase().includes(q) ||
+    (s.localisation?.adresse || '').toLowerCase().includes(q)
+  );
+
+  document.getElementById('count-label').textContent = `${liste.length} résultat(s)`;
+  afficher(liste);
 }
 
 function getBadge(statut) {
-  const map = {
-    en_attente: 'badge-attente',
-    en_cours:   'badge-cours',
-    resolu:     'badge-resolu',
-    rejete:     'badge-rejete'
-  };
-  return `<span class="badge ${map[statut] || ''}">${statut.replace('_', ' ')}</span>`;
+  const cls = { en_attente:'badge-attente', en_cours:'badge-cours', resolu:'badge-resolu', rejete:'badge-rejete' };
+  return `<span class="badge ${cls[statut] || ''}">${STATUT_LABELS[statut] || statut}</span>`;
+}
+
+function getPriorityDot(p) {
+  return { haute:'🔴', moyenne:'🟡', basse:'🟢' }[p] || '⚪';
 }
 
 function afficher(liste) {
   const div = document.getElementById('liste-dashboard');
   if (!liste.length) {
-    div.innerHTML = '<div class="card">Aucun signalement trouvé.</div>';
+    div.innerHTML = `<div class="empty-state"><div class="icon">🔍</div>Aucun signalement trouvé.</div>`;
     return;
   }
   div.innerHTML = liste.map(s => `
-    <div class="card" style="border-left:4px solid #1a73e8">
+    <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:0.5rem">
-        <div>
-          <h3>${s.titre}</h3>
-          <p style="color:#666;margin:0.4rem 0">${s.description}</p>
-          <small>
-            📍 ${s.localisation?.adresse || 'N/A'} &nbsp;|&nbsp;
-            🏷️ ${categories[s.categorie] || s.categorie} &nbsp;|&nbsp;
-            🗓️ ${new Date(s.date_creation).toLocaleDateString()} &nbsp;|&nbsp;
-            👤 ${s.citoyen_nom || 'Inconnu'} &nbsp;|&nbsp;
-            👍 ${s.votes} votes
-          </small>
+        <div style="flex:1;min-width:200px">
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem">
+            <h3 style="font-size:0.95rem">${s.titre}</h3>
+            ${getPriorityDot(s.priorite)}
+          </div>
+          <p style="color:#64748b;font-size:0.83rem;margin-bottom:0.4rem">${s.description || ''}</p>
+          <div style="font-size:0.78rem;color:#94a3b8;display:flex;flex-wrap:wrap;gap:0.4rem">
+            <span>📍 ${s.localisation?.adresse || 'N/A'}</span>
+            <span>·</span>
+            <span>${CATEGORIES[s.categorie] || s.categorie}</span>
+            <span>·</span>
+            <span>🗓️ ${s.date_creation ? new Date(s.date_creation).toLocaleDateString('fr-FR') : '—'}</span>
+            <span>·</span>
+            <span>👤 ${s.citoyen_nom || 'Inconnu'}</span>
+            <span>·</span>
+            <span>👍 ${s.votes || 0} votes</span>
+          </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:0.5rem;align-items:flex-end">
           ${getBadge(s.statut)}
-          <button class="btn btn-primary" onclick="ouvrirModal('${s._id}','${s._rev}','${s.statut}')">
-            ✏️ Traiter
-          </button>
+          <button class="btn btn-primary" onclick="ouvrirModal('${s._id}','${s.statut}')">✏️ Traiter</button>
         </div>
       </div>
       ${s.historique && s.historique.length > 1 ? `
         <details style="margin-top:0.8rem">
-          <summary style="cursor:pointer;color:#1a73e8">📜 Historique</summary>
+          <summary style="cursor:pointer;color:#1a73e8;font-size:0.82rem">📜 Historique (${s.historique.length})</summary>
           <div style="margin-top:0.5rem">
             ${s.historique.map(h => `
-              <div style="padding:0.3rem 0;border-bottom:1px solid #eee;font-size:0.85rem">
-                ${getBadge(h.statut)} 
-                <span style="color:#666">${new Date(h.date).toLocaleString()}</span>
-                ${h.commentaire ? `— ${h.commentaire}` : ''}
+              <div style="padding:0.3rem 0;border-bottom:1px solid #f1f5f9;font-size:0.8rem;display:flex;gap:0.5rem;align-items:center">
+                ${getBadge(h.statut)}
+                <span style="color:#64748b">${new Date(h.date).toLocaleString('fr-FR')}</span>
+                ${h.commentaire ? `<span style="color:#374151">— ${h.commentaire}</span>` : ''}
               </div>
             `).join('')}
           </div>
@@ -177,23 +723,13 @@ function afficher(liste) {
   `).join('');
 }
 
-function filtrer() {
-  const statut    = document.getElementById('filtre-statut').value;
-  const categorie = document.getElementById('filtre-categorie').value;
-  let liste = tousSignalements;
-  if (statut)    liste = liste.filter(s => s.statut === statut);
-  if (categorie) liste = liste.filter(s => s.categorie === categorie);
-  afficher(liste);
-}
-
-function ouvrirModal(id, rev, statut) {
-  document.getElementById('modal-id').value       = id;
-  document.getElementById('modal-rev').value      = rev;
-  document.getElementById('modal-statut').value   = statut;
+// ── Modal ────────────────────────────────────────────────────────────────────
+function ouvrirModal(id, statut) {
+  document.getElementById('modal-id').value      = id;
+  document.getElementById('modal-statut').value  = statut;
   document.getElementById('modal-commentaire').value = '';
-  document.getElementById('modal').style.display  = 'flex';
+  document.getElementById('modal').style.display = 'flex';
 }
-
 function fermerModal() {
   document.getElementById('modal').style.display = 'none';
 }
@@ -203,22 +739,41 @@ async function sauvegarder() {
   const statut      = document.getElementById('modal-statut').value;
   const commentaire = document.getElementById('modal-commentaire').value;
 
-  const res = await fetch(`${API}/signalements/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ statut, commentaire })
-  });
-
-  const data = await res.json();
-  if (data.success) {
+  try {
+    const res = await fetch(`${API}/signalements/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ statut, commentaire })
+    });
+    const data = await res.json();
+    if (data.success) { fermerModal(); charger(); }
+    else alert('Erreur : ' + data.error);
+  } catch {
+    // Demo mode: update locally
+    const s = allSignalements.find(x => x._id === id);
+    if (s) {
+      s.statut = statut;
+      s.historique = s.historique || [];
+      s.historique.push({ statut, date: new Date().toISOString(), commentaire });
+    }
     fermerModal();
-    charger();
-  } else {
-    alert('Erreur : ' + data.error);
+    updateKPIs();
+    renderCharts();
+    filtrer();
   }
 }
 
-charger();
+// ── Demo data (fallback when backend offline) ─────────────────────────────────
+const DEMO_DATA = [
+  { _id:'1', type:'signalement', titre:'Lampadaire cassé rue Ibn Battouta', categorie:'eclairage', description:'Le lampadaire ne fonctionne plus depuis 3 jours', statut:'en_attente', priorite:'haute', votes:12, date_creation:'2026-05-28T10:00:00Z', localisation:{adresse:'Rue Ibn Battouta, Tanger'}, citoyen_nom:'Manar El Mellas', historique:[{statut:'en_attente',date:'2026-05-28T10:00:00Z',commentaire:'Signalement soumis'}] },
+  { _id:'2', type:'signalement', titre:'Nid de poule Boulevard Mohammed V', categorie:'route', description:'Trou dangereux sur la chaussée', statut:'en_cours', priorite:'haute', votes:8, date_creation:'2026-05-27T14:30:00Z', localisation:{adresse:'Bd Mohammed V, Tanger'}, citoyen_nom:'Noha Rami', historique:[{statut:'en_attente',date:'2026-05-27T14:30:00Z',commentaire:'Signalement soumis'},{statut:'en_cours',date:'2026-05-28T09:00:00Z',commentaire:'Équipe envoyée'}] },
+  { _id:'3', type:'signalement', titre:'Dépôt sauvage near Parc Perdicaris', categorie:'dechets', description:'Grande quantité de déchets abandonnés', statut:'resolu', priorite:'moyenne', votes:5, date_creation:'2026-05-25T11:00:00Z', localisation:{adresse:'Parc Perdicaris, Tanger'}, citoyen_nom:'Ahmed Bennani', historique:[{statut:'en_attente',date:'2026-05-25T11:00:00Z',commentaire:'Signalement soumis'},{statut:'resolu',date:'2026-05-26T16:00:00Z',commentaire:'Zone nettoyée'}] },
+  { _id:'4', type:'signalement', titre:'Vandalisme mur école primaire', categorie:'vandalisme', description:'Graffiti sur le mur extérieur', statut:'en_attente', priorite:'basse', votes:3, date_creation:'2026-05-29T08:00:00Z', localisation:{adresse:'Rue de Fès, Tanger'}, citoyen_nom:'Fatima Zahra', historique:[{statut:'en_attente',date:'2026-05-29T08:00:00Z',commentaire:'Signalement soumis'}] },
+  { _id:'5', type:'signalement', titre:'Inondation rue des Alouettes', categorie:'inondation', description:'Eau stagnante après les pluies', statut:'en_cours', priorite:'haute', votes:15, date_creation:'2026-05-30T07:00:00Z', localisation:{adresse:'Rue des Alouettes, Tanger'}, citoyen_nom:'Karim Idrissi', historique:[{statut:'en_attente',date:'2026-05-30T07:00:00Z',commentaire:'Signalement soumis'},{statut:'en_cours',date:'2026-05-30T09:30:00Z',commentaire:'Intervention en cours'}] },
+  { _id:'6', type:'signalement', titre:'Trottoir fissuré avenue des FAR', categorie:'route', description:'Dalle soulevée, risque de chute', statut:'rejete', priorite:'basse', votes:2, date_creation:'2026-05-26T15:00:00Z', localisation:{adresse:'Avenue des FAR, Tanger'}, citoyen_nom:'Sara Mansouri', historique:[{statut:'en_attente',date:'2026-05-26T15:00:00Z',commentaire:'Signalement soumis'},{statut:'rejete',date:'2026-05-27T11:00:00Z',commentaire:'Déjà planifié dans les travaux annuels'}] },
+  { _id:'7', type:'signalement', titre:'Éclairage défaillant marché central', categorie:'eclairage', description:'6 lampadaires éteints', statut:'en_attente', priorite:'moyenne', votes:9, date_creation:'2026-05-29T18:00:00Z', localisation:{adresse:'Marché Central, Tanger'}, citoyen_nom:'Youssef Tazi', historique:[{statut:'en_attente',date:'2026-05-29T18:00:00Z',commentaire:'Signalement soumis'}] },
+  { _id:'8', type:'signalement', titre:'Déchets plage Malabata', categorie:'dechets', description:'Plastiques et déchets en bord de mer', statut:'resolu', priorite:'haute', votes:20, date_creation:'2026-05-24T10:00:00Z', localisation:{adresse:'Plage Malabata, Tanger'}, citoyen_nom:'Hind Chaoui', historique:[{statut:'en_attente',date:'2026-05-24T10:00:00Z',commentaire:'Signalement soumis'},{statut:'resolu',date:'2026-05-25T14:00:00Z',commentaire:'Nettoyage effectué'}] },
+];
 </script>
 </body>
 </html>
