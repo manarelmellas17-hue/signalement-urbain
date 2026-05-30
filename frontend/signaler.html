@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Signaler — Signalement Urbain</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+</head>
+<body>
+<nav>
+  <h1>🏙️ Signalement Urbain</h1>
+  <div>
+    <span id="nav-user"></span>
+    <a href="index.html">Carte</a>
+    <a href="dashboard.html" id="nav-dashboard" style="display:none">Dashboard</a>
+    <a href="#" id="nav-logout" onclick="logout()">Déconnexion</a>
+  </div>
+</nav>
+
+<div class="container" style="max-width:700px">
+  <div class="card" style="margin-top:2rem">
+    <h2 style="margin-bottom:1.5rem">📝 Nouveau Signalement</h2>
+    <div id="alert"></div>
+
+    <div class="form-group">
+      <label>Titre *</label>
+      <input type="text" id="titre" placeholder="Ex: Lampadaire cassé rue Ibn Battouta">
+    </div>
+
+    <div class="form-group">
+      <label>Catégorie *</label>
+      <select id="categorie">
+        <option value="">-- Choisir une catégorie --</option>
+        <option value="eclairage">💡 Éclairage public défectueux</option>
+        <option value="route">🛣️ Route / trottoir endommagé</option>
+        <option value="dechets">🗑️ Dépôt sauvage de déchets</option>
+        <option value="vandalisme">🔨 Vandalisme / dégradation</option>
+        <option value="inondation">🌊 Inondation / eau stagnante</option>
+        <option value="autre">📌 Autre</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Description *</label>
+      <textarea id="description" rows="4" 
+        placeholder="Décrivez le problème en détail..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Priorité</label>
+      <select id="priorite">
+        <option value="faible">🟢 Faible</option>
+        <option value="moyenne" selected>🟡 Moyenne</option>
+        <option value="haute">🔴 Haute</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>📍 Localisation</label>
+      <div id="map-signaler" style="height:300px;border-radius:10px;margin:0.5rem 0 1rem"></div>
+      <input type="text" id="adresse" placeholder="Adresse (cliquez sur la carte ou saisissez)">
+      <input type="hidden" id="lat">
+      <input type="hidden" id="lng">
+      <button class="btn btn-primary" onclick="geoLocaliser()" style="margin-top:0.5rem">
+        📡 Ma position actuelle
+      </button>
+    </div>
+
+    <div class="form-group">
+      <label>📸 Photos</label>
+      <input type="file" id="photos" multiple accept="image/*">
+      <small style="color:#666">Max 5 Mo par photo</small>
+    </div>
+
+    <button class="btn btn-success" onclick="soumettre()" 
+      style="width:100%;margin-top:1rem;padding:0.9rem;font-size:1rem">
+      ✅ Soumettre le signalement
+    </button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script src="js/auth.js"></script>
+<script>
+requireLogin();
+updateNav();
+
+// Init map
+const map = L.map('map-signaler').setView([35.7595, -5.8340], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap'
+}).addTo(map);
+
+let marker;
+
+map.on('click', function(e) {
+  const { lat, lng } = e.latlng;
+  setMarker(lat, lng);
+  document.getElementById('lat').value = lat;
+  document.getElementById('lng').value = lng;
+  document.getElementById('adresse').value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+});
+
+function setMarker(lat, lng) {
+  if (marker) map.removeLayer(marker);
+  marker = L.marker([lat, lng]).addTo(map);
+}
+
+function geoLocaliser() {
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    map.setView([lat, lng], 15);
+    setMarker(lat, lng);
+    document.getElementById('lat').value = lat;
+    document.getElementById('lng').value = lng;
+    document.getElementById('adresse').value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  }, () => {
+    alert('Impossible de récupérer votre position.');
+  });
+}
+
+async function soumettre() {
+  const alertDiv = document.getElementById('alert');
+  const titre      = document.getElementById('titre').value;
+  const categorie  = document.getElementById('categorie').value;
+  const description= document.getElementById('description').value;
+  const priorite   = document.getElementById('priorite').value;
+  const adresse    = document.getElementById('adresse').value;
+  const lat        = document.getElementById('lat').value;
+  const lng        = document.getElementById('lng').value;
+  const user       = getUser();
+
+  if (!titre || !categorie || !description) {
+    alertDiv.innerHTML = `<div class="alert alert-error">Veuillez remplir tous les champs obligatoires (*)</div>`;
+    return;
+  }
+
+  if (!lat || !lng) {
+    alertDiv.innerHTML = `<div class="alert alert-error">Veuillez sélectionner une localisation sur la carte</div>`;
+    return;
+  }
+
+  const signalement = {
+    titre,
+    categorie,
+    description,
+    priorite,
+    citoyen_id: user._id,
+    citoyen_nom: user.nom,
+    localisation: {
+      adresse: adresse,
+      latitude: parseFloat(lat),
+      longitude: parseFloat(lng)
+    }
+  };
+
+  const res = await fetch(`${API}/signalements`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(signalement)
+  });
+
+  const data = await res.json();
+  if (data.success) {
+    alertDiv.innerHTML = `<div class="alert alert-success">✅ Signalement soumis avec succès !</div>`;
+    setTimeout(() => window.location.href = 'index.html', 1500);
+  } else {
+    alertDiv.innerHTML = `<div class="alert alert-error">${data.error}</div>`;
+  }
+}
+</script>
+</body>
+</html>
