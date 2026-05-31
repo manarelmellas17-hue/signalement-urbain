@@ -222,6 +222,7 @@
   <div>
     <span id="nav-user" style="margin-right:1rem;opacity:0.9;font-size:0.9rem"></span>
     <a href="index.html">🗺️ Carte</a>
+    <a href="admin.html" id="nav-admin" style="display:none">⚙️ Admin</a>
     <a href="#" onclick="logout()">Déconnexion</a>
   </div>
 </nav>
@@ -414,11 +415,16 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function updateNav() {
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  if (user.nom) document.getElementById('nav-user').textContent = '👤 ' + user.nom;
+  const raw = sessionStorage.getItem('user');
+  const user = raw ? JSON.parse(raw) : null;
+  if (user) {
+    document.getElementById('nav-user').textContent = '👤 ' + user.nom;
+    const navAdmin = document.getElementById('nav-admin');
+    if (navAdmin && user.role === 'administrateur') navAdmin.style.display = 'inline';
+  }
 }
 function logout() {
-  localStorage.removeItem('user');
+  sessionStorage.removeItem('user');
   window.location.href = 'login.html';
 }
 
